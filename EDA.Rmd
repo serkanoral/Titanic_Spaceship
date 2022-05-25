@@ -1,0 +1,101 @@
+---
+title: "EDA"
+author: "Serkan Oral"
+date: '2022-05-25'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Packages
+
+```{r include=FALSE}
+library(tidyverse)
+library(tidymodels)
+library(naniar)
+library(skimr)
+library(patchwork)
+library(vip)
+
+
+
+```
+
+Importing Data
+
+```{r include=FALSE}
+
+train <- read_csv("Data/train.csv")
+test <- read_csv("Data/test.csv")
+sample <- read_csv("Data/sample_submission.csv")
+
+```
+
+```{r}
+glimpse(train)
+```
+
+```{r}
+gg_miss_var(train)
+```
+
+```{r}
+train %>% 
+  skim()
+```
+
+```{r}
+
+train_last <- train %>% 
+  separate(Name, into =c("Name", "Lastname")) %>% 
+  separate(Cabin, into = c("Cabin_1", "Cabin_2", "Cabin_3" )) %>% 
+  mutate_if(is.character, factor)
+
+train_last %>% 
+  count(Lastname, sort = TRUE)
+
+
+train_last %>% 
+  drop_na(Lastname) %>% 
+  filter(Lastname == "Barbes") %>% 
+  count(Transported)
+
+
+test_last <- test %>% 
+  separate(Name, into =c("Name", "Lastname")) %>% 
+  separate(Cabin, into = c("Cabin_1", "Cabin_2", "Cabin_3" )) %>% 
+  mutate_if(is.character, factor)
+
+
+```
+
+NA's are almost distributed evenly. So we will check each feature and decide how to impute the NA values
+
+# AGE
+
+```{r}
+train_last %>%
+  drop_na(Age) %>% 
+  ggplot(aes(Age, fill = Transported))+
+  geom_histogram(binwidth = 1)
+```
+
+```{r}
+train_last %>%
+filter(is.na(Age)) %>%
+count(Transported)
+```
+
+We will use Random Forest to replace NA's
+
+# Room Service
+
+```{r}
+
+train_last %>%
+  drop_na(RoomService) %>% 
+  ggplot(aes(RoomService , fill = Transported))+
+  geom_histogram() 
+```
