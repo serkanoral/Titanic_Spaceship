@@ -27,44 +27,45 @@ Importing Data
 
 ```{r include=FALSE}
 
-train <- read_csv("Data/train.csv")
-test <- read_csv("Data/test.csv")
+train_data <- read_csv("Data/train.csv")
+test_data <- read_csv("Data/test.csv")
 sample <- read_csv("Data/sample_submission.csv")
 
 ```
 
 ```{r}
-glimpse(train)
+glimpse(train_data)
 ```
 
 ```{r}
-gg_miss_var(train)
+gg_miss_var(train_data)
 ```
 
 ```{r}
-train %>% 
+train_data %>% 
   skim()
 ```
 
 ```{r}
 
-train_last <- train %>% 
-  separate(Name, into =c("Name", "Lastname")) %>% 
+train <- train_data %>% 
+  mutate(Cabin_original = Cabin) %>% 
+  separate(Name, into =c("First_name", "Last_name")) %>% 
   separate(Cabin, into = c("Cabin_1", "Cabin_2", "Cabin_3" )) %>% 
   mutate_if(is.character, factor)
 
-train_last %>% 
-  count(Lastname, sort = TRUE)
 
 
-train_last %>% 
-  drop_na(Lastname) %>% 
-  filter(Lastname == "Barbes") %>% 
+
+train %>% 
+  drop_na(Last_name) %>% 
+  filter(Last_name == "Barbes") %>% 
   count(Transported)
 
 
-test_last <- test %>% 
-  separate(Name, into =c("Name", "Lastname")) %>% 
+test <- test_data %>% 
+  mutate(Cabin_original = Cabin) %>% 
+  separate(Name, into =c("Name", "Last_name")) %>% 
   separate(Cabin, into = c("Cabin_1", "Cabin_2", "Cabin_3" )) %>% 
   mutate_if(is.character, factor)
 
@@ -76,14 +77,14 @@ NA's are almost distributed evenly. So we will check each feature and decide how
 # AGE
 
 ```{r}
-train_last %>%
+train %>%
   drop_na(Age) %>% 
   ggplot(aes(Age, fill = Transported))+
   geom_histogram(binwidth = 1)
 ```
 
 ```{r}
-train_last %>%
+train %>%
 filter(is.na(Age)) %>%
 count(Transported)
 ```
@@ -94,8 +95,448 @@ We will use Random Forest to replace NA's
 
 ```{r}
 
-train_last %>%
+train %>%
   drop_na(RoomService) %>% 
   ggplot(aes(RoomService , fill = Transported))+
   geom_histogram() 
 ```
+
+# **DESTINATION**
+
+```{r}
+train %>%
+count(Destination, sort = TRUE)
+```
+
+```{r}
+train %>%
+filter(is.na(Destination)) %>%
+count(Transported)
+
+train %>%
+filter(!is.na(Destination)) %>%
+count(Transported)
+```
+
+```{r}
+train %>%
+drop_na(Destination) %>%
+ggplot(aes(Destination, fill = Transported)) +
+geom_bar()
+```
+
+```{r}
+train %>%
+drop_na(Destination,Age) %>%
+ggplot(aes(Age,Destination, fill = Transported)) +
+geom_boxplot() + coord_flip()
+```
+
+# Food Court
+
+```{r}
+train %>%
+count(FoodCourt, sort = TRUE)
+```
+
+```{r}
+train %>%
+filter(is.na(FoodCourt)) %>%
+count(Transported)
+
+train %>%
+filter(!is.na(FoodCourt)) %>%
+count(Transported)
+```
+
+```{r}
+train %>%
+drop_na(FoodCourt) %>%
+ggplot(aes(FoodCourt, fill = Transported)) +
+geom_histogram()
+```
+
+```{r}
+train %>%
+drop_na(FoodCourt) %>%
+ggplot(aes(FoodCourt +1 , fill = Transported)) +
+geom_histogram() + scale_x_log10()
+```
+
+# SPA
+
+```{r}
+train %>%
+count(Spa, sort = TRUE)
+```
+
+```{r}
+train %>%
+filter(is.na(Spa)) %>%
+count(Transported)
+
+train %>%
+filter(!is.na(Spa)) %>%
+count(Transported)
+```
+
+```{r}
+train %>%
+drop_na(Spa) %>%
+ggplot(aes(Spa, fill = Transported)) +
+geom_histogram()
+```
+
+```{r}
+train %>%
+drop_na(Spa) %>%
+ggplot(aes(Spa +1, fill = Transported)) +
+geom_histogram() + scale_x_log10()
+```
+
+```{r}
+train %>%
+filter(Spa ==0) %>%
+count(Transported)
+
+train %>%
+filter(Spa ==1) %>%
+count(Transported)
+
+train %>%
+filter(Spa ==2) %>%
+count(Transported)
+```
+
+# VR Deck
+
+```{r}
+train %>%
+count(VRDeck, sort = TRUE)
+```
+
+```{r}
+train %>%
+filter(is.na(VRDeck)) %>%
+count(Transported)
+
+
+train %>%
+filter(!is.na(VRDeck)) %>%
+count(Transported)
+```
+
+```{r}
+train %>%
+drop_na(VRDeck) %>%
+ggplot(aes(VRDeck, fill = Transported)) +
+geom_histogram()
+```
+
+```{r}
+train %>%
+drop_na(VRDeck) %>%
+ggplot(aes(VRDeck+1, fill = Transported)) +
+geom_histogram()+ scale_x_log10()
+```
+
+```{r}
+train %>%
+filter(VRDeck ==6) %>%
+count(Transported)
+```
+
+# CABIN
+
+```{r}
+train %>%
+count(Cabin_original, sort = TRUE)
+
+```
+
+```{r}
+train %>%
+filter(is.na(Cabin_original)) %>%
+count(Transported)
+
+train %>%
+filter(!is.na(Cabin_original)) %>%
+count(Transported)
+```
+
+```{r}
+train %>%
+drop_na(Cabin_original) %>%
+ggplot(aes(Cabin_original, fill = Transported)) +
+geom_bar()
+```
+
+# CABIN_1
+
+```{r}
+train %>%
+count(Cabin_1, sort = TRUE)
+```
+
+```{r}
+train %>%
+filter(is.na(Cabin_1)) %>%
+count(Transported)
+
+train %>%
+filter(!is.na(Cabin_1)) %>%
+count(Transported)
+
+train %>%
+filter(Cabin_1 == "A") %>%
+count(Transported)
+
+train %>%
+filter(Cabin_1 == "D") %>%
+count(Transported)
+```
+
+```{r}
+train %>%
+drop_na(Cabin_1) %>%
+ggplot(aes(Cabin_1, fill = Transported)) +
+geom_bar()
+```
+
+# CABIN_2
+
+```{r}
+train %>%
+count(Cabin_2, sort = TRUE)
+```
+
+```{r}
+train %>%
+filter(is.na(Cabin_2)) %>%
+count(Transported)
+
+train %>%
+filter(!is.na(Cabin_2)) %>%
+count(Transported)
+
+train %>%
+filter(Cabin_2 == "269") %>%
+count(Transported)
+```
+
+```{r}
+train %>%
+drop_na(Cabin_2) %>%
+ggplot(aes(as.numeric(Cabin_2), fill = Transported)) +
+geom_histogram() + labs(x = "Cabin_2") 
+```
+
+# CABIN_3
+
+```{r}
+train %>%
+count(Cabin_3, sort = TRUE)
+```
+
+```{r}
+train %>%
+filter(is.na(Cabin_3)) %>%
+count(Transported)
+
+train %>%
+filter(!is.na(Cabin_3)) %>%
+count(Transported)
+
+train %>%
+filter(Cabin_3 == "P") %>%
+count(Transported)
+
+train %>%
+filter(Cabin_3 == "S") %>%
+count(Transported)
+```
+
+```{r}
+train %>%
+drop_na(Cabin_3) %>%
+ggplot(aes(Cabin_3, fill = Transported)) +
+geom_bar()
+```
+
+# FIRST NAME
+
+```{r}
+train %>%
+count(First_name, sort = TRUE)
+```
+
+```{r}
+train %>%
+filter(is.na(First_name)) %>%
+count(Transported)
+
+train %>%
+filter(!is.na(First_name)) %>%
+count(Transported)
+```
+
+```{r}
+train %>%
+drop_na(First_name) %>%
+ggplot(aes(First_name, fill = Transported)) +
+geom_bar()
+```
+
+# LAST NAME
+
+```{r}
+train %>%
+count(Last_name, sort = TRUE)
+```
+
+```{r}
+train %>%
+filter(is.na(Last_name)) %>%
+count(Transported)
+
+train %>%
+filter(!is.na(Last_name)) %>%
+count(Transported)
+```
+
+```{r}
+train %>%
+drop_na(Last_name) %>%
+ggplot(aes(Last_name, fill = Transported)) +
+geom_bar()
+```
+
+# Home Planet
+
+```{r}
+train %>%
+count(HomePlanet, sort = TRUE)
+```
+
+```{r}
+train %>%
+filter(is.na(HomePlanet)) %>%
+count(Transported)
+
+train %>%
+filter(!is.na(HomePlanet)) %>%
+count(Transported)
+```
+
+```{r}
+train %>%
+drop_na(HomePlanet) %>%
+ggplot(aes(HomePlanet, fill = Transported)) +
+geom_bar()
+```
+
+# VIP
+
+```{r}
+train %>%
+count(VIP, sort = TRUE)
+```
+
+```{r}
+train %>%
+filter(is.na(VIP)) %>%
+count(Transported)
+
+train %>%
+filter(!is.na(VIP)) %>%
+count(Transported)
+```
+
+```{r}
+train %>%
+drop_na(VIP) %>%
+ggplot(aes(VIP, fill = Transported)) +
+geom_bar()
+```
+
+# Shopping Mall
+
+```{r}
+train %>%
+count(ShoppingMall, sort = TRUE)
+```
+
+```{r}
+train %>%
+filter(is.na(ShoppingMall)) %>%
+count(Transported)
+
+train %>%
+filter(!is.na(ShoppingMall)) %>%
+count(Transported)
+```
+
+```{r}
+train %>%
+drop_na(ShoppingMall) %>%
+ggplot(aes(ShoppingMall +1 , fill = Transported)) +
+geom_histogram() + scale_x_log10()
+```
+
+# Cryo Sleep
+
+```{r}
+train %>%
+count(CryoSleep, sort = TRUE)
+```
+
+```{r}
+train %>%
+filter(is.na(CryoSleep)) %>%
+count(Transported)
+
+train %>%
+filter(!is.na(CryoSleep)) %>%
+count(Transported)
+```
+
+```{r}
+train %>%
+drop_na(CryoSleep) %>%
+ggplot(aes(CryoSleep, fill = Transported)) +
+geom_bar()
+```
+
+What to do with NA values
+
+AGE - Random Forest
+
+ROOMSERVICE - 3 - maybe log transformation +1
+
+Destination - "PSO J318.5-2255"
+
+Foodcourt - 0 - maybe log transformation +1
+
+SPA - 2 - maybe log transformation +1
+
+VRDeck - 6 - maybe log transformation +1
+
+CABIN_1 - A
+
+CABIN_2 - "269"
+
+CABIN_3 - KNN
+
+Cabin_original - CABIN_1+ CABIN_2 + CABIN_3
+
+First_name - unknown
+
+Last_name - unknown
+
+HomePlanet - Mars
+
+VIP - TRUE
+
+ShoppingMall - 0 - maybe log transformation +1
+
+Cryosleep - FALSE
