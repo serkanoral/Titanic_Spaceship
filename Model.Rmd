@@ -1,0 +1,149 @@
+---
+title: "Model"
+author: "Serkan Oral"
+date: '2022-05-27'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages, include=FALSE}
+library(tidyverse)
+library(tidymodels)
+library(naniar)
+library(skimr)
+library(patchwork)
+library(vip)
+```
+
+
+Splitting Data
+
+```{r}
+train$Transported <- as.factor(train$Transported)
+train$CryoSleep <- as.factor(train$CryoSleep)
+train$VIP <- as.factor(train$VIP)
+
+test$CryoSleep <- as.factor(test$CryoSleep)
+test$VIP <- as.factor(test$VIP)
+
+set.seed(123)
+split <- initial_split(train, strata = Transported)
+train_t <- training(split)
+test_t <- testing(split)
+
+```
+
+
+Recipe
+
+What to do with NA values
+AGE - Random Forest
+ROOMSERVICE - 3 - maybe log transformation +1
+Destination - "PSO J318.5-2255"
+Foodcourt - 0 - maybe log transformation +1
+SPA - 2 - maybe log transformation +1
+VRDeck - 6 - maybe log transformation +1
+CABIN_1 - A
+CABIN_2 - "269"
+CABIN_3 - KNN
+Cabin_original - CABIN_1+ CABIN_2 + CABIN_3
+HomePlanet - Mars
+VIP - TRUE
+ShoppingMall - 0 - maybe log transformation +1
+Cryosleep - FALSE
+
+```{r}
+set.seed(123)
+rec <- train_t %>%
+recipe(Transported ~.)%>%
+step_novel(all_nominal_predictors()) %>% 
+step_unknown(First_name,Last_name) %>% 
+step_impute_bag(Age) %>% 
+step_impute_knn(all_predictors(),neighbors = 5) %>% 
+step_log(RoomService, FoodCourt,Spa, VRDeck,ShoppingMall,offset = 1) %>% 
+step_normalize(all_numeric_predictors()) %>% 
+step_nzv(all_numeric_predictors()) 
+  
+  
+```
+
+
+
+
+```{r}
+preped_rec <- rec %>% prep()
+
+preped_rec %>% bake(new_data = NULL) %>% 
+  gg_miss_var()
+
+```
+
+```{r}
+rf_spec <- rand_forest(min_n = tune(), mtry =tune(), trees = 1000) %>%
+set_engine("ranger")%>%
+set_mode("classification")
+```
+
+
+```{r}
+rf_wf <- workflow() %>%
+add_recipe(rec,blueprint = hardhat::default_recipe_blueprint(allow_novel_levels = TRUE))%>%
+add_model(rf_spec)
+```
+
+```{r}
+set.seed(123)
+rf_grid <- grid_latin_hypercube(min_n(), finalize(mtry(),train_t), size = 50)
+```
+
+```{r}
+
+kfold <- vfold_cv( train_t)
+
+doParallel::registerDoParallel()
+
+set.seed(234)
+rf_res <- tune_grid(object = rf_wf,resamples = kfold,grid = rf_grid,control = control_grid(save_pred = TRUE),metrics = metric_set(accuracy))
+
+rf_final_wf <- finalize_workflow(rf_wf, select_best(rf_res))
+```
+
+
+```{r}
+
+
+doParallel::registerDoParallel()
+
+rf_fit <- fit(rf_final_wf, train)
+```
+
+
+```{r}
+
+test_t <- preped_rec %>% bake(new_data = test_t)
+predict(rf_fit, test_t) %>% 
+  bind_cols(test_t) %>% 
+  select(.pred_class, Transported) %>% 
+  conf_mat(Transported, .pred_class)
+```
+
+```{r}
+
+set.seed(123)
+submission <- predict(rf_fit, test) %>% 
+  bind_cols(test) %>% 
+  select(PassengerId, .pred_class) %>% 
+  rename(Transported = .pred_class)
+
+submission$PassengerId <- as.character(submission$PassengerId)
+submission$Transported <- str_to_title(as.character(submission$Transported))
+
+write_csv(submission,file = "Submission.csv")
+```
+
+
+
+

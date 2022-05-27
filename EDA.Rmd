@@ -65,7 +65,7 @@ train %>%
 
 test <- test_data %>% 
   mutate(Cabin_original = Cabin) %>% 
-  separate(Name, into =c("Name", "Last_name")) %>% 
+  separate(Name, into =c("First_name", "Last_name")) %>% 
   separate(Cabin, into = c("Cabin_1", "Cabin_2", "Cabin_3" )) %>% 
   mutate_if(is.character, factor)
 
