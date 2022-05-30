@@ -125,7 +125,7 @@ set_mode("classification")
 
 
 # Some alternatives
-# min_n = 34 learn_rate = 0.0216
+# min_n = 34 learn_rate = 0.0216 (the best so far)
 # min_n = 25 learn_rate = 0.0650
 # min_n = 11 learn_rate = 0.0158
 

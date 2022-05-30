@@ -58,3 +58,5 @@ train.csv
 Submission.csv
 .RDataTmp1
 EDA.html
+catboost_info/
+.RDataTmp2
