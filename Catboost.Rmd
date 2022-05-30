@@ -1,5 +1,5 @@
 ---
-title: "Model"
+title: "Catboost"
 author: "Serkan Oral"
 date: '2022-05-27'
 output: html_document
@@ -16,10 +16,11 @@ library(naniar)
 library(skimr)
 library(patchwork)
 library(vip)
+remotes::install_github("Glemhel/treesnip")
+library(treesnip)
+library(finetune)
+library(vip)
 ```
-
-
-Splitting Data
 
 ```{r}
 train_data <- read_csv("Data/train.csv")
@@ -59,8 +60,9 @@ set.seed(123)
 split <- initial_split(train, strata = Transported)
 train_t <- training(split)
 test_t <- testing(split)
-
 ```
+
+
 
 
 Recipe
@@ -81,17 +83,20 @@ VIP - TRUE
 ShoppingMall - 0 - maybe log transformation +1
 Cryosleep - FALSE
 
+
+
 ```{r}
 set.seed(123)
 rec <- train_t %>%
 recipe(Transported ~.)%>%
 step_novel(all_nominal_predictors()) %>% 
 step_unknown(First_name,Last_name) %>% 
-step_impute_bag(Age) %>% 
-step_impute_knn(all_predictors(),neighbors = 5) %>% 
-step_YeoJohnson(RoomService, FoodCourt,Spa, VRDeck,ShoppingMall) %>% 
+step_impute_bag(all_numeric_predictors()) %>% 
+step_impute_knn(all_nominal_predictors(),neighbors = 5) %>% 
+# step_YeoJohnson(RoomService, FoodCourt,Spa, VRDeck,ShoppingMall) %>% 
 step_normalize(all_numeric_predictors()) %>% 
-step_nzv(all_numeric_predictors()) 
+step_nzv(all_predictors()) 
+
   
   
 ```
@@ -101,56 +106,86 @@ step_nzv(all_numeric_predictors())
 
 ```{r}
 preped_rec <- rec %>% prep()
-
-preped_rec %>% bake(new_data = NULL) %>% 
-  gg_miss_var()
+preped_rec %>% bake(new_data = NULL) 
 
 ```
 
 ```{r}
-rf_spec <- rand_forest(min_n = tune(), mtry =tune(), trees = 1000) %>%
-set_engine("ranger")%>%
+cat_spec <- boost_tree(trees = 1000,min_n = tune(),learn_rate = tune(),
+                       tree_depth = tune()) %>%
+set_engine("catboost", loss_function = 'Logloss')%>%
 set_mode("classification")
+
+
+# cat_spec <- boost_tree(trees = 1000,min_n = 20,learn_rate = 0.0215,
+#                        tree_depth = 7) %>%
+# set_engine("catboost", loss_function = 'Logloss')%>%
+# set_mode("classification")
+
+
+
+# Some alternatives
+# min_n = 34 learn_rate = 0.0216
+# min_n = 25 learn_rate = 0.0650
+# min_n = 11 learn_rate = 0.0158
+
+# Some alternatives
+# min_n = 20 tree_depth = 7 learn_rate = 0.0215
+# min_n = 40 tree_depth = 13 learn_rate = 0.0659
+# min_n = 7  tree_depth = 8 learn_rate = 0.0879
+
+
+# Some alternatives
+# min_n = 8 tree_depth = 12 learn_rate = 0.0675
+# min_n = 17 tree_depth = 5 learn_rate = 0.00905
+# min_n = 21  tree_depth = 13 learn_rate = 0.0041
+
+
 ```
 
 
 ```{r}
-rf_wf <- workflow() %>%
+cat_wf <- workflow() %>%
 add_recipe(rec,blueprint = hardhat::default_recipe_blueprint(allow_novel_levels = TRUE))%>%
-add_model(rf_spec)
+add_model(cat_spec)
+```
+
+```{r}
+set.seed(234)
+cat_grid <- grid_max_entropy(min_n(), learn_rate(),tree_depth(), size = 25) %>% 
+  round(8)
+
+seq(0.0215,0.01)
 ```
 
 ```{r}
 set.seed(123)
-rf_grid <- grid_latin_hypercube(min_n(), finalize(mtry(),train_t), size = 50)
-```
-
-```{r}
-
-kfold <- vfold_cv( train_t)
+kfold <- vfold_cv(train_t)
 
 doParallel::registerDoParallel()
 
 set.seed(234)
-rf_res <- tune_grid(object = rf_wf,resamples = kfold,grid = rf_grid,control = control_grid(save_pred = TRUE),metrics = metric_set(accuracy))
+cat_res <- tune_grid(object = cat_wf,resamples = kfold,grid = cat_grid,control = control_grid(save_pred = TRUE),metrics = metric_set(accuracy))
 
-rf_final_wf <- finalize_workflow(rf_wf, select_best(rf_res))
+cat_final_wf <- finalize_workflow(cat_wf, select_best(cat_res))
 ```
 
 
 ```{r}
-
 
 doParallel::registerDoParallel()
 
-rf_fit <- fit(rf_final_wf, train)
+cat_fit <- fit(cat_final_wf, train)
+
+# doParallel::registerDoParallel()
+# 
+# cat_fit <- fit(cat_final_wf, train)
 ```
 
 
 ```{r}
 
-test_t <- preped_rec %>% bake(new_data = test_t)
-predict(rf_fit, test_t) %>% 
+predict(cat_fit, test_t) %>% 
   bind_cols(test_t) %>% 
   select(.pred_class, Transported) %>% 
   conf_mat(Transported, .pred_class)
@@ -159,7 +194,7 @@ predict(rf_fit, test_t) %>%
 ```{r}
 
 set.seed(123)
-submission <- predict(rf_fit, test) %>% 
+submission <- predict(cat_fit, test) %>% 
   bind_cols(test) %>% 
   select(PassengerId, .pred_class) %>% 
   rename(Transported = .pred_class)
@@ -169,6 +204,7 @@ submission$Transported <- str_to_title(as.character(submission$Transported))
 
 write_csv(submission,file = "Submission.csv")
 ```
+
 
 
 
